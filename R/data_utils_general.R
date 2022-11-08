@@ -5,7 +5,13 @@
 ###################################################
 
 .on.public.web <<- T;
-#.on.public.web <<- F;
+
+Set.Config <-function(anal.mode="web"){
+
+  globalConfig <- list();
+  globalConfig$anal.mode <- anal.mode
+  globalConfig <<- globalConfig;
+}
 
 # init resources for analysis
 
@@ -17,9 +23,21 @@
 #'License: GNU GPL (>= 2)
 #'@export
 #'
-Init.Data<-function(path="../../"){
+Init.Data<-function(onWeb=T, path="../../"){
   node.infoU <<- data.frame()
+
   dataSet <- list(annotated=FALSE);
+  analSet <- list(annotated=FALSE);
+  paramSet <- list(annotated=FALSE);
+  msgSet <- list(annotated=FALSE);
+  cmdSet <- list(annotated=FALSE);
+  
+  if(onWeb){
+  Set.Config("web");
+  }else{
+  Set.Config("local");
+  }
+
   dataSet$params <- list();
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
   Sys.setenv("OMP_NUM_THREADS" = 2); # need to control parallel computing for some packages
@@ -31,49 +49,83 @@ Init.Data<-function(path="../../"){
   netUploadU <<- 0;
   net.stats <<- as.data.frame(matrix(0, ncol = 3, nrow = 1));
   enr.mat <<- NULL;
-  numOfLists <<- 1;
   rankOptGlobal <<- "pval";
   data.org <<- "hsa";
   keggpw.count <<- 0;
   pvalu <<- 0.05;
   reg.count <<- 0; 
 
-  if(!.on.public.web){
-    #store dataset in memory
-    dataSets <<- list();
-  }
 
-  dataSet$jsonNms <- list()
+  dataSet$jsonNms <- list();
+  dataSet$name <- "";
 
   if(file.exists("/home/glassfish/sqlite/")){
-    sqlite.path <<- "/home/glassfish/sqlite/";  #public server
+    sqlite.path <- "/home/glassfish/sqlite/";  #public server
   }else if(file.exists("/Users/xia/Dropbox/sqlite/")){
-    sqlite.path <<- "/Users/xia/Dropbox/sqlite/"; #xia local
+    sqlite.path <- "/Users/xia/Dropbox/sqlite/"; #xia local
   }else if(file.exists("/Users/jeffxia/Dropbox/sqlite/")){
-    sqlite.path <<- "/Users/jeffxia/Dropbox/sqlite/"; #xia local2
+    sqlite.path <- "/Users/jeffxia/Dropbox/sqlite/"; #xia local2
   }else if(file.exists("/media/zzggyy/disk/sqlite/")){  
-    sqlite.path <<-"/media/zzggyy/disk/sqlite/"; #zgy local
+    sqlite.path <-"/media/zzggyy/disk/sqlite/"; #zgy local
   }else if(file.exists("/home/le/sqlite/networkanalystdatabase/")){
-    sqlite.path <<- "/home/le/sqlite/networkanalystdatabase/"; #le local
+    sqlite.path <- "/home/le/sqlite/networkanalystdatabase/"; #le local
   }else if(file.exists("/home/zgy/sqlite/")){
-    sqlite.path <<-"/home/zgy/sqlite/"; #zgy local
+    sqlite.path <-"/home/zgy/sqlite/"; #zgy local
   }else if(file.exists("/Users/jessicaewald/sqlite/")){ # ewald local
-    sqlite.path <<- "/Users/jessicaewald/sqlite/"
+    sqlite.path <- "/Users/jessicaewald/sqlite/"
   }
   
-  lib.path <<- paste0(path, "data/");
   data.org <<- NULL;
   module.count <<- 0;
   msg.vec <<- vector(mode="character");
   current.msg <<- "";
   
+  paramSet$partialToBeSaved <- c("Rload.RData", "Rhistory.R", "paramSet.qs", "msgSet.qs", "analSet.qs", "cmdSet.qs");
+
+  Sys.setenv("OMP_NUM_THREADS" = 2); # need to control parallel computing for some packages
+  paramSet$init.lib <- "kegg";
+  paramSet$selectedFactorInx <- 1; #in multi comparison (i.e pairwise, time-series) which contrast is used
+  analSet$net.stats <- as.data.frame(matrix(0, ncol = 3, nrow = 1));
+  msgSet$summaryVec <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "NA"); 
+  analSet$enr.mat <- NULL;
+  paramSet$numOfLists <- 1;
+  paramSet$data.idType <- "";
+  paramSet$pvalu <- 0.05;
+  paramSet$selDataNm <- "meta_default";
+  paramSet$mdata.all <- list();
+  paramSet$anal.type <- "onedata";
+  paramSet$api.bool <- F;
+  paramSet$jsonNms <- list();
+
+  paramSet$sqlite.path <- sqlite.path;
+  paramSet$lib.path <- paste0(path, "data/");
+
+  if(!.on.public.web) {
+    paramSet$sqlite.path <- paste0(getwd(), "/");
+    paramSet$lib.path <- "https://www.expressanalyst.ca/ExpressAnalyst/resources/data/";
+  } 
+
+  paramSet$on.public.web <- .on.public.web;
+  paramSet$data.org <- "hsa";
+  paramSet$module.count <- 0;
+  msgSet$current.msg <- vector(mode="character");
+  msgSet$msg.list <- list(); #numbered list, each element: function name, line number, time stamp, severity
+
   # preload some general package
   require('Cairo');
   CairoFonts("Arial:style=Regular","Arial:style=Bold","Arial:style=Italic","Helvetica","Symbol")
   require('igraph');
   print("called networkanalyst init!");
 
-  return(.set.mSet(dataSet));
+  dataSets <<- list();
+  saveSet(paramSet, "paramSet");
+  saveSet(msgSet, "msgSet");
+  saveSet(analSet, "analSet");
+  saveSet(cmdSet, "cmdSet");
+
+  SetAnalType("genelist");
+
+  return(RegisterData(dataSet,1));
 }
 
 .set.mSet <- function(dataSetObj=NA){
@@ -96,16 +148,20 @@ Init.Data<-function(path="../../"){
 # genelist, onedata, metadata
 # also set up or clear the other global objects
 SetAnalType <- function(analType){
-  anal.type <<- analType;
-  mdata.all <<- list();
-  meta.selected <<- TRUE;
-  meta.upload <<- FALSE; # when upload merged data from meta-analysis b4
+  paramSet <- readSet(paramSet, "paramSet");
+  paramSet$anal.type <- analType;
+  paramSet$mdata.all <- list();
+  paramSet$meta.selected <- TRUE;
+  paramSet$meta.upload <- FALSE; # when upload merged data from meta-analysis b4
   if(analType == "metadata"){
-    partialToBeSaved <<- c(partialToBeSaved, "inmex_meta.qs")
+    paramSet$partialToBeSaved <- c(paramSet$partialToBeSaved, "inmex_meta.qs")
   }
+  saveSet(paramSet, "paramSet");
+  return(paste0("Set to ",analType));
 }
 
 SetNetType <- function(netType){
+  print(netType);
   net.type <<- netType;
 }
 
@@ -118,24 +174,31 @@ SetNetType <- function(netType){
 # All datasets are selected by default (1 for selected, 0 for unselected)
 
 # note, dataSet need to have "name" property
-RegisterData <- function(dataSet){
+# note, dataSet need to have "name" property
+RegisterData <- function(dataSet, output=1){
   dataName <- dataSet$name;
 
-  if(!is.null(dataSet$data.raw)){ # save memory for meta-analysis mode
-    dataSet$data.raw <- NULL;
+  paramSet <- readSet(paramSet, "paramSet");
+  if(length(dataName)>0){
+  mdata.all <- paramSet$mdata.all;
+  mdata.all[[dataName]] <- 1;
+  paramSet$mdata.all <- mdata.all;
+  saveSet(paramSet, "paramSet");
   }
-  if(anal.type == "metadata"){
-    mdata.all[[dataName]] <<- 1;
+
+  if(globalConfig$anal.mode == "web"){
+    dataSets[[dataName]] <- dataSet;
+    dataSets <<- dataSets;
+    return(output);
   }else{
-    mdata.all <<- lapply(mdata.all, function(x){ x <- 0;});
-    mdata.all[[dataName]] <<- 1;
-  }
-  qs::qsave(dataSet, file=dataName);
-  if(!.on.public.web){
-  dataSets[dataSet$name] <- dataSet
-  return(dataSets)
-  }else{
-  return(.set.mSet(dataSet));
+    if( globalConfig$anal.mode == "api"){
+        qs::qsave(dataSet, file=dataName);
+        return(output);
+    }else{
+        dataSets[[dataName]] <- dataSet;
+        dataSets <<- dataSets;
+        return(dataSets);
+    }
   }
 } 
 
@@ -149,9 +212,13 @@ SetCurrentData <- function(nm){
 
 # remove data object, the current dataSet will be the last one by default
 RemoveData <- function(dataName){
+  paramSet <- readSet(paramSet, "paramSet");
   if(!is.null(mdata.all[[dataName]])){
-    mdata.all[[dataName]] <<- NULL;
+    mdata.all[[dataName]] <- NULL;
   }
+  paramSet$mdata.all <- mdata.all;
+  saveSet(paramSet, "paramSet");
+
 }
 
 # users can select one or more data for analysis
@@ -159,11 +226,15 @@ RemoveData <- function(dataName){
 # and by default is all selected.
 SelectDataSet <- function(){
   if(!exists('nm.vec')){
-    current.msg <<-"No dataset is selected for analysis!";
-    print(current.msg);
+    msgSet <- readSet(msgSet, "msgSet");
+    msgSet$current.msg <-"No dataset is selected for analysis!";
+    saveSet(msgSet, "msgSet");
     return(0);
   }
-  
+
+  paramSet <- readSet(paramSet, "paramSet");
+  mdata.all <- paramSet$mdata.all;
+
   all.nms <- names(mdata.all);
   for(nm in all.nms){
     if(nm %in% nm.vec){
@@ -172,26 +243,21 @@ SelectDataSet <- function(){
       mdata.all[[nm]] <- 0;
     }
   }
-  mdata.all <<- mdata.all;
-  
-  if(anal.type == "metadata"){
-    if("meta_dat" %in% nm.vec){
-      meta.selected <<- TRUE;
-    }else{
-      meta.selected <<- FALSE;
-    }
-  }
+  paramSet$mdata.all <- mdata.all;
   
   rm('nm.vec', envir = .GlobalEnv);
-  return(.set.mSet(dataSet));
+  return(1);
 }
+
 
 GetAllDataNames <- function(){
   names(mdata.all);
 }
 
 SetOrganism <- function(org){
-  data.org <<- org;
+  paramSet <- readSet(paramSet, "paramSet");
+  paramSet$data.org <- org;
+  saveSet(paramSet, "paramSet");
 }
 
 SetSelectedFactorInx <- function(inx){
@@ -199,7 +265,9 @@ SetSelectedFactorInx <- function(inx){
 }
 
 SetSelNetDataset <- function(type){
-  selectedNetDataset <<- type;
+  paramSet <- readSet(paramSet, "paramSet");
+  paramSet$selectedNetDataset <- type;
+  saveSet(paramSet, "paramSet");
 }
 
 SetSelMultiNet <- function(type){
@@ -217,14 +285,10 @@ SetListNms <- function(){
   listSizes <- list();
   
   # convert to entrez
-  if(anal.type == "metadata"){
-    inmex.meta <- qs::qread("inmex_meta.qs");
-    en.ids <- rownames(inmex.meta$data);
-    nm <- "meta_data"
-  }else{
-    en.ids <- rownames(dataSet$resTable)
-    nm <- "dataSet"
-  }
+
+  en.ids <- rownames(dataSet$resTable)
+  nm <- "dataSet"
+  
   names(en.ids) <- doEntrez2SymbolMapping(en.ids)
   
   listSizes[[1]] <- list(
@@ -238,7 +302,8 @@ SetListNms <- function(){
 }
 
 GetDataListNames <- function(){
-  return(names(mdata.all));
+  paramSet <- readSet(paramSet, "paramSet");
+  return(names(paramSet$mdata.all));
 }
 
 # note: hit.query, resTable must synchronize
@@ -376,3 +441,34 @@ PrepareJsonFromR <- function(fileNm, type, jsonString, dataSetString){
     return(1)
 }
 
+
+
+#'Record R Commands
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param cmd Commands 
+#'@export
+RecordRCommand <- function(cmd){
+  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  cmdSet$cmdVec <- c(cmdSet$cmdVec, cmd);
+  saveSet(cmdSet, "cmdSet");
+  return(1);
+}
+
+SaveRCommands <- function(){
+  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  cmds <- paste(cmdSet$cmdVec, collapse="\n");
+  pid.info <- paste0("# PID of current job: ", Sys.getpid());
+  cmds <- c(pid.info, cmds);
+  write(cmds, file = "Rhistory.R", append = FALSE);
+}
+
+#'Export R Command History
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@export
+GetRCommandHistory <- function(){
+  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  if(length(cmdSet$cmdVec) == 0){
+    return("No commands found");
+  }
+  return(cmdSet$cmdVec);
+}

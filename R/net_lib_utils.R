@@ -7,7 +7,7 @@
 ###################################################
 
 # note, last two par only for STRING database
-QueryPpiSQLite <- function(table.nm, q.vec, requireExp, min.score){
+QueryPpiSQLite <- function(sqlite.path, table.nm, q.vec, requireExp, min.score){
   require('RSQLite')
   ppi.db <- dbConnect(SQLite(), paste(sqlite.path, "ppi.sqlite", sep="")); 
   query <- paste(shQuote(q.vec),collapse=",");
@@ -29,7 +29,7 @@ QueryPpiSQLite <- function(table.nm, q.vec, requireExp, min.score){
 }
 
 #for signaling pathway as well
-QueryOtherPpiSQLite <- function(table.nm, q.vec){
+QueryOtherPpiSQLite <- function(sqlite.path, table.nm, q.vec, data.org){
   require('RSQLite')
     if(grepl("signal$", table.nm)){
         ppi.db <- dbConnect(SQLite(), paste(sqlite.path, "signor.sqlite", sep="")); 
@@ -44,7 +44,7 @@ QueryOtherPpiSQLite <- function(table.nm, q.vec){
 }
 
 # table name is org code, id.type is column name
-QueryMirSQLite <- function(org, id.type, q.vec, db.nm){
+QueryMirSQLite <- function(sqlite.path, org, id.type, q.vec, db.nm){
   require('RSQLite');
   mir.db <- dbConnect(SQLite(), paste(sqlite.path, "mir2gene.sqlite", sep=""));
   query <- paste (shQuote(q.vec),collapse=",");
@@ -54,7 +54,7 @@ QueryMirSQLite <- function(org, id.type, q.vec, db.nm){
 }
 
 # table name is org code, id.type is column name
-QueryDrugSQLite <- function(q.vec){
+QueryDrugSQLite <- function(sqlite.path, q.vec){
   require('RSQLite');
   drug.db <- dbConnect(SQLite(), paste(sqlite.path, "drug.sqlite", sep=""));
   query <- paste (shQuote(q.vec),collapse=",");
@@ -62,7 +62,7 @@ QueryDrugSQLite <- function(q.vec){
   return(.query.sqlite(drug.db, statement));
 }
 
-QueryDiseaseSQLite <- function(q.vec){
+QueryDiseaseSQLite <- function(sqlite.path, q.vec){
   require('RSQLite');
   dis.db <- dbConnect(SQLite(), paste(sqlite.path, "disease.sqlite", sep=""));
   query <- paste(shQuote(q.vec),collapse=",");
@@ -70,15 +70,17 @@ QueryDiseaseSQLite <- function(q.vec){
   return(.query.sqlite(dis.db, statement));
 }
 
-QueryTfmirSQLite <- function(q.vec){
+QueryTfmirSQLite <- function(sqlite.path, q.vec, data.org){
   require('RSQLite');
+  paramSet <- readSet(paramSet, "paramSet");
+  sqlite.path <- paramSet$sqlite.path;
   tf.db <- dbConnect(SQLite(), paste(sqlite.path, "tfmirgene.sqlite", sep=""));
   query <- paste(shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM ", data.org, " WHERE ((id1 IN (", query, ")) OR (id2 IN (", query, ")))" , sep="");
   return(.query.sqlite(tf.db, statement));
 }
 
-QueryDiffNetSQLite <- function(q.vec){
+QueryDiffNetSQLite <- function(sqlite.path, q.vec){
   require('RSQLite');
   drug.db <- dbConnect(SQLite(), paste(sqlite.path, "tissuePPI.sqlite", sep=""));
   table.nm <- diffNetName;
@@ -93,7 +95,7 @@ QueryDiffNetSQLite <- function(q.vec){
   return(drug.dic);
 }
 
-QueryCellCoexSQLite <- function(q.vec){
+QueryCellCoexSQLite <- function(sqlite.path, q.vec, data.org){
   require('RSQLite');
   drug.db <- dbConnect(SQLite(), paste(sqlite.path, data.org,"_immune.sqlite", sep=""));
   tblNm <- paste0(data.org,"_",cellCoexNumber);
@@ -102,7 +104,7 @@ QueryCellCoexSQLite <- function(q.vec){
   return(.query.sqlite(drug.db,statement));
 }
 
-QueryTissueCoexSQLite <- function(q.vec){
+QueryTissueCoexSQLite <- function(sqlite.path, q.vec, data.org){
   require('RSQLite');
   drug.db <- dbConnect(SQLite(), paste(sqlite.path, "tissueCoex.sqlite", sep=""));
   tblNm <- paste0(data.org,"_",cellCoexNumber);
@@ -111,7 +113,7 @@ QueryTissueCoexSQLite <- function(q.vec){
   return(.query.sqlite(drug.db, statement));
 }
 
-QueryChemSQLite<- function(org, q.vec){
+QueryChemSQLite<- function(sqlite.path, org, q.vec){
   require('RSQLite');
   chem.db <- dbConnect(SQLite(), paste(sqlite.path, "chem.sqlite", sep=""));
   query <- paste (shQuote(q.vec),collapse=",");
@@ -119,7 +121,7 @@ QueryChemSQLite<- function(org, q.vec){
   return(.query.sqlite(chem.db, statement));
 }
 
-QueryTFSQLite<- function(table.nm, q.vec){
+QueryTFSQLite<- function(sqlite.path, table.nm, q.vec){
   require('RSQLite');
   chem.db <- dbConnect(SQLite(), paste(sqlite.path, "tf2gene.sqlite", sep=""));
   query <- paste (shQuote(q.vec),collapse=",");
@@ -127,7 +129,9 @@ QueryTFSQLite<- function(table.nm, q.vec){
   return(.query.sqlite(chem.db, statement));
 }
 
-doPpiIDMapping <- function(q.vec, table.nm="entrez_swissprot"){
+doPpiIDMapping <- function(sqlite.path, q.vec, data.org="entrez_swissprot"){
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   invertAcc <-F;
   idType <- ""
   if(data.org == "sce"){
@@ -212,7 +216,7 @@ doEmblProtein2EntrezMapping <- function(emblprotein.vec){
   return(entrezs);
 }
 
-QueryMetSQLiteNet <- function(table.nm, q.vec, inv){
+QueryMetSQLiteNet <- function(sqlite.path, table.nm, q.vec, inv){
     require('RSQLite');
     path <- paste0(sqlite.path, "met.sqlite")
     lnc.db <- dbConnect(SQLite(), path);

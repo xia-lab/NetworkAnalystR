@@ -1,5 +1,5 @@
-Package: OmicsNetR
-Title: OmicsNetR
+Package: NetworkAnalystR
+Title: NetworkAnalystR
 Version: 1.0.0
 Authors@R: c(
            person(given = "Guangyan",
@@ -8,18 +8,16 @@ Authors@R: c(
            email = "guangyan.zhou@mail.mcgill.ca"
            )
            )
-Description: Underlying R functions for OmicsNet web server.
+Description: Underlying R functions for NetworkAnalystR web server.
 License: GPL (>= 2)
-Depends: R (>= 4.0.3), igraph, RColorBrewer, qs, rjson, RSQLite
-Imports: Rcpp, BiocManager, XiaLabCppLib, data.table, metap,
-    tidyr, Cairo, RJSONIO, RSQLite, RandomWalkRestartMH,
-    dplyr, ggforce, ggplot2, graphlayouts, httr, lc8,
-    lpsymphony, plyr, pryr, stringr, tidyr, knitr
-Suggests: 
-LinkingTo: Rcpp
+Depends: R (>= 4.0.3)
+Imports: igraph, RColorBrewer, qs, RJSONIO, RSQLite
+Suggests: Rcpp, BiocManager, data.table,
+    Cairo, ggforce, ggplot2, graphlayouts,
+    plyr, tidyr, knitr
 VignetteBuilder: knitr
-BugReports: https://github.com/xia-lab/OmicsNetR/issues/new
-URL: https://github.com/xia-lab/OmicsNetR
+BugReports: https://github.com/xia-lab/NetworkAnalysR/issues/new
+URL: https://github.com/xia-lab/NetworkAnalysR
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.1

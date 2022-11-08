@@ -21,8 +21,13 @@
 
 ReadGraphFile <- function(fileName, fileType, org, idType) {
 
+  paramSet <- readSet(paramSet, "paramSet");
+  analSet <- readSet(analSet, "analSet");
+
   json3d <- F;
-  data.org<<- org
+  data.org<<- org;
+  paramSet$data.org <- data.org;
+
   require("igraph");
   types_arr <<- "";
   ppi.comps <<- list();
@@ -181,7 +186,7 @@ ReadGraphFile <- function(fileName, fileType, org, idType) {
       nms <- V(graphX)$id;
       graphX = set_vertex_attr(graphX, "name", value=nms)
     }
-    entrezs = convertIdToEntrez(nms, idType)
+    entrezs = .doGeneIDMapping(nms, idType, data.org, "matrix")
     nms = entrezs[,"gene_id"]
     symbols = doEntrez2SymbolMapping(nms)
     node.data = data.frame(nms, symbols);
@@ -192,10 +197,12 @@ ReadGraphFile <- function(fileName, fileType, org, idType) {
   e=get.edgelist(graphX)
   edge.data= data.frame(Source=e[,1], Target=e[,2])
   
-  seed.expr <<- rep(0, length(node.data));
+  paramSet$seed.expr <- rep(0, length(node.data));
   node.data <- cbind(node.data, rep("NA", nrow(node.data)) )
   colnames(node.data) = c("Id", "Label", "Types");
-  substats <- DecomposeGraph(graphX, 3, fileType);
+  analSet <- DecomposeGraph(graphX,analSet, 3, fileType);
+  substats <- analSet$substats;
+
   net.nm <- names(ppi.comps)[1];
   net.nmu <<- net.nm;
   current.net.nm <<- net.nm;
@@ -213,13 +220,17 @@ ReadGraphFile <- function(fileName, fileType, org, idType) {
   if(fileType != "netjson"){
     convertIgraph2JSONFromFile(net.nm, "networkanalyst_0.json", data.idType);
   }
-  #print(json3d)
+
+  analSet$ppi.net <- ppi.net;
+  analSet$overall.graph <- overall.graph;
+  saveSet(paramSet, "paramSet");
   if(json3d){
-    .set.mSet(dataSet)
-    return(2);
+    
+    output <- 2;
   }else{
-    return(.set.mSet(dataSet));
+    output <- 1;
   }
+  return(saveSet(analSet, "analSet", 1));
 }
 
 
@@ -227,7 +238,8 @@ ReadGraphFile <- function(fileName, fileType, org, idType) {
 # and decompose into subnets
 
 convertIgraph2JSONFromFile <- function(net.nm, filenm, idType){
-  
+  paramSet <- readSet(paramSet, "paramSet");
+  anal.type <- paramSet$anal.type;
   if(fileTypeu == "netjson"){
     return(0);
   }

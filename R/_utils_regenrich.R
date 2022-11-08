@@ -1,14 +1,17 @@
-
-
 my.reg.enrich <- function(file.nm, fun.type, ora.vec, netInv){
   require(plyr)
+
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- dataSet$data.org;
+  sqlite.path <- dataSet$sqlite.path;
+
   ora.nms <- names(ora.vec);
   # prepare for the result table
   set.size<-100;
   
   if (fun.type %in% c("chea", "encode", "jaspar", "trrust")){
     table.nm <- paste(data.org, fun.type, sep="_");
-    res <- QueryTFSQLite(table.nm, ora.vec);
+    res <- QueryTFSQLite(sqlite.path, table.nm, ora.vec);
     # no hits
     if(nrow(res)==0){ return(c(0,0)); }
     edge.res <- data.frame(gene=res[,"entrez"], symbol=res[,"symbol"],id=res[,"tfid"], name=res[,"tfname"]);       
@@ -16,8 +19,7 @@ my.reg.enrich <- function(file.nm, fun.type, ora.vec, netInv){
     node.nms <- c(res[,"symbol"], res[,"tfname"]);
     
   }else if(fun.type == "mirnet"){ 
-    table.nm <- data.org
-    res <- QueryMirSQLite(table.nm, "entrez", ora.vec, "mirtarbase");
+    res <- QueryMirSQLite(sqlite.path, data.org, "entrez", ora.vec, "mirtarbase");
     if(nrow(res)==0){ return(c(0,0)); }
     edge.res <- data.frame(gene=res[,"entrez"], symbol=res[,"symbol"], id=res[,"mir_acc"], name=res[,"mir_id"] );
     node.ids <- c(res[,"entrez"], res[,"mir_acc"])
@@ -25,14 +27,14 @@ my.reg.enrich <- function(file.nm, fun.type, ora.vec, netInv){
     
   }else if(fun.type == "met"){ 
     table.nm <- paste(data.org, "kegg", sep="_"); 
-    res <- QueryMetSQLiteNet(table.nm, ora.vec, "inverse");
+    res <- QueryMetSQLiteNet(sqlite.path, table.nm, ora.vec, "inverse");
     if(nrow(res)==0){ return(c(0,0)); }
     edge.res <- data.frame(gene=res[,"entrez"], symbol=res[,"symbol"], id=res[,"kegg"], name=res[,"met"] );
     node.ids <- c(res[,"entrez"], res[,"kegg"])
     node.nms <- c(res[,"symbol"], res[,"met"]);
     
   }else if(fun.type == "disease"){ # in miRNA, table name is org code, colname is id type
-    res <- QueryDiseaseSQLite(ora.vec);
+    res <- QueryDiseaseSQLite(sqlite.path, ora.vec);
     if(nrow(res)==0){ return(c(0,0)); }
     edge.res <- data.frame(gene=res[,"entrez"], symbol=res[,"symbol"], id=res[,"diseaseId"], name=res[,"diseaseName"] );
     node.ids <- c(res[,"entrez"], res[,"diseaseId"])
@@ -41,7 +43,7 @@ my.reg.enrich <- function(file.nm, fun.type, ora.vec, netInv){
   }else{
     table.nm <- paste("drug", data.org, sep="_");
     ora.vec <- doEntrez2UniprotMapping(ora.vec);
-    res <- QueryDrugSQLite(ora.vec);
+    res <- QueryDrugSQLite(sqlite.path, ora.vec);
     if(nrow(res)==0){ return(c(0,0)); }
     edge.res <- data.frame(gene=doUniprot2EntrezMapping(res[,"upid"]), symbol=res[,"symbol"], id=res[,"dbid"], name=res[,"dbname"] );
     node.ids <- c(doUniprot2EntrezMapping(res[,"upid"]), res[,"dbid"])

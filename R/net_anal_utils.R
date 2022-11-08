@@ -38,16 +38,37 @@ BuildMultiNet <- function(tblNm1="NA", tblNm2="NA", tblNm3="NA", tblNm4="NA", or
   return(res);
 }
 
+#' Query database using input list or previously computed network
+#'
+#' @param db.type Input the name of the created dataSetObj (see Init.Data)
+#' @param type Network type (gene, met, mir, tf, mic, peak, m2m, snp)
+#' @param dbType Database name (i.e innatedb)
+#' @param inputType Omics type of input features (gene, protein, met, tf, mic, peak, snp)
+#'
+#' @export
+#'
 SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, order=1){
+
     regids<<- "";
     db.typeu <<- db.type;
     result.list <- .prepareSigProteinJSON();
+
+    paramSet <- readSet(paramSet, "paramSet");
+    data.org <- paramSet$data.org;
+    sqlite.path <- paramSet$sqlite.path;
+    lib.path <- paramSet$lib.path;
+
+    net.type <- gsub(paste0(data.org,"_"),'',table.nm);
+    print("nettttt==");
+    print(net.type);
+    SetNetType(net.type);
+
     protein.vec <- result.list$protein.vec; # this actually is entrez IDs?
     seed.proteins <<- protein.vec;
     # now do the database search
     if(db.type == "ppi"){
-        protein.vec <- doPpiIDMapping(protein.vec);
-        res <- QueryPpiSQLite(table.nm, protein.vec, require.exp, min.score);
+        protein.vec <- doPpiIDMapping(sqlite.path, protein.vec, data.org);
+        res <- QueryPpiSQLite(sqlite.path, table.nm, protein.vec, require.exp, min.score);
         # no hits
       if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,1],Target=res[,2]);
@@ -58,7 +79,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types <- c(rep("Protein", nrow(res)), rep("Protein", nrow(res)))
     }else if(db.type == "tf"){
         table.nm <- paste(data.org,table.nm, sep="_");
-        res <- QueryTFSQLite(table.nm, protein.vec);
+        res <- QueryTFSQLite(sqlite.path, table.nm, protein.vec);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"entrez"],Target=res[,"tfid"]);
@@ -68,7 +89,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.nms <- c(res[,"symbol"], res[,"tfname"]);
         node.types <- c(rep("Protein", nrow(res)), rep("TF", nrow(res)))
     }else if(db.type == "crossppi"){
-        res <- QueryOtherPpiSQLite(table.nm, protein.vec);
+        res <- QueryOtherPpiSQLite(sqlite.path, table.nm, protein.vec, data.org);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"id1"],Target=res[,"id2"]);
@@ -87,7 +108,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
             node.infoU <<- node.extra.info[!duplicated(node.extra.info$id),];
         }
     }else if(db.type == "signal"){
-        res <- QueryOtherPpiSQLite(table.nm, protein.vec);
+        res <- QueryOtherPpiSQLite(sqlite.path,table.nm, protein.vec, data.org);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"id1"],Target=res[,"id2"], Direction=res[, "EFFECT"], Mechanism=res[,"MECHANISM"]);
@@ -102,7 +123,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
 
     }else if(db.type == "mir"){ # in miRNA, table name is org code, colname is id type
         db.nm <- table.nm;
-        res <- QueryMirSQLite(data.org, "entrez", protein.vec, db.nm);
+        res <- QueryMirSQLite(sqlite.path, data.org, "entrez", protein.vec, db.nm);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"entrez"],Target=res[,"mir_acc"]);
@@ -115,7 +136,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         # note, all drug data is on human,
         protein.vec <- doEntrez2UniprotMapping(protein.vec);
         protein.vec <- protein.vec[!is.na(protein.vec)];
-        res <- QueryDrugSQLite(protein.vec);
+        res <- QueryDrugSQLite(sqlite.path, protein.vec);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=doUniprot2EntrezMapping(res[,"upid"]),Target=res[,"dbid"]);
@@ -127,7 +148,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types <- c(rep("Protein", nrow(res)), rep("Drug", nrow(res)));
         protein.vec <- doUniprot2EntrezMapping(protein.vec);
     }else if(db.type == "disease"){
-        res <- QueryDiseaseSQLite(protein.vec);
+        res <- QueryDiseaseSQLite(sqlite.path, protein.vec);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"entrez"],Target=res[,"diseaseId"]);
@@ -139,7 +160,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types <- c(rep("Protein", nrow(res)), rep("Disease", nrow(res)))
 
     }else if(db.type == "tfmir"){
-        res <- QueryTfmirSQLite(protein.vec);
+        res <- QueryTfmirSQLite(sqlite.path, protein.vec, data.org);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"id1"],Target=res[,"id2"]);
@@ -158,7 +179,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types[mir.inx] <- "miRNA";
 
     }else if(db.type == "cellcoex"){
-        res <- QueryCellCoexSQLite(protein.vec);
+        res <- QueryCellCoexSQLite(sqlite.path, protein.vec, data.org);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"id1"],Target=res[,"id2"]);
@@ -170,7 +191,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types <- c(rep("Protein", nrow(res)), rep("Protein", nrow(res)))
 
     }else if(db.type == "tissueppi"){
-        res <- QueryDiffNetSQLite(protein.vec);
+        res <- QueryDiffNetSQLite(sqlite.path, protein.vec);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"id1"],Target=res[,"id2"]);
@@ -182,7 +203,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types <- c(rep("Protein", nrow(res)), rep("Protein", nrow(res)))
     }else if(db.type == "tissuecoex"){
         # note, all drug data is on human,
-        res <- QueryTissueCoexSQLite(protein.vec);
+        res <- QueryTissueCoexSQLite(sqlite.path, protein.vec, data.org);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"id1"],Target=res[,"id2"]);
@@ -193,7 +214,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.nms <- c(res[,"name1"], res[,"name2"]);
         node.types <- c(rep("Protein", nrow(res)), rep("Protein", nrow(res)))
     }else if(db.type == "chem"){
-        res <- QueryChemSQLite(data.org, protein.vec);
+        res <- QueryChemSQLite(sqlite.path, data.org, protein.vec);
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"entrez"],Target=res[,"ctdid"]);
         row.names(edge.res) <- 1:nrow(res);
@@ -204,7 +225,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         node.types <- c(rep("Protein", nrow(res)), rep("Chemical", nrow(res)))
     }else if(db.type == "met"){
         table.nm <- paste(data.org, met.type, sep="_");
-        res <- QueryMetSQLiteNet(table.nm, protein.vec, netInv);
+        res <- QueryMetSQLiteNet(sqlite.path, table.nm, protein.vec, netInv);
         if(nrow(res)==0){ return(c(0,0)); }
         edge.res <- data.frame(Source=res[,"entrez"],Target=res[,"kegg"]);
         row.names(edge.res) <- 1:nrow(res);
@@ -254,12 +275,16 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         min.score = min.score
     );
 
-    dataSet$nets[[db.type]] <- ppi.net
-    .set.mSet(dataSet)
-    return(c(nrow(node.res), nrow(res)));
+    paramSet$nets[[db.type]] <- ppi.net
+    saveSet(paramSet, "paramSet");
+    analSet$ppi.net <- ppi.net;
+    output <- c(nrow(node.res), nrow(res))
+    return(saveSet(analSet, "analSet", output))
 }
 
 .prepareSigProteinJSON <- function(){
+    paramSet <- readSet(paramSet, "paramSet");
+    anal.type <- paramSet$anal.type;
     if(anal.type == "genelist"){
         result.list <- .prepareListSeeds();
     }else{ # single expression data or meta.mat
@@ -269,11 +294,17 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
 }
 
 .prepareListSeeds <- function(){
-
     protein.list <- list();
     gene.list <- list();
+    paramSet <- readSet(paramSet, "paramSet");
+    selectedNetDataset <- paramSet$selectedNetDataset;
+    msgSet <- readSet(msgSet, "msgSet");
 
-    if(numOfLists > 1){
+    data.org <- paramSet$data.org;
+
+    mdata.all <- paramSet$mdata.all;
+
+    if(paramSet$numOfLists > 1){
         if(selectedNetDataset %in% c("intersect","union")){
             dataSet <- list();
             dataSet$name <- selectedNetDataset
@@ -281,7 +312,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
             com.ids <- NULL;
             list.vec <- list()
             for(i in 1:length(my.vec)){
-                datSet <- qs::qread(my.vec[i]);
+                datSet <- readDataset(my.vec[i]);
                 if(is.null(com.ids)){
                   com.ids <- datSet$GeneAnotDB[,"gene_id"];
                   prot.mat <- datSet$prot.mat
@@ -290,7 +321,6 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
                   if(selectedNetDataset == "intersect"){
                     com.ids <- datSet$GeneAnotDB[,"gene_id"];
                     list.vec[[i]] <- com.ids
-                    #com.ids <- intersect(com.ids, datSet$GeneAnotDB[,"gene_id"]);
                   }else{
                     com.ids <- union(com.ids, datSet$GeneAnotDB[,"gene_id"]);
                   }
@@ -304,7 +334,7 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
             com.ids <- unique(as.character(com.ids[!is.na(com.ids)])); # make sure it is interpreted as name not index
             }
 
-            com.symbols <- doEntrez2SymbolMapping(com.ids);
+            com.symbols <- doEntrez2SymbolMapping(com.ids, data.org, paramSet$data.idType);
             dataSet$GeneAnotDB <- data.frame(gene_id=com.ids, accession=com.symbols);
             dataSet$prot.mat <- prot.mat;
             dataSet$sig.mat <- prot.mat
@@ -317,20 +347,23 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
            com.ids <- NULL;
            ids.list <- list()
            for(i in 1:length(my.vec)){
-                dataSet <- qs::qread(my.vec[i]);
+                dataSet <- readDataset(my.vec[i]);
                 ids.list[[i]]=dataSet$GeneAnotDB[,"gene_id"]
            }
-            dataSet <- qs::qread(selectedNetDataset);
+            dataSet <- readDataset(selectedNetDataset);
             ids <- unique(unlist(ids.list));
             com.ids <-setdiff(dataSet$GeneAnotDB[,"gene_id"], ids);
             prot.mat <- as.matrix(dataSet$prot.mat[which(rownames(dataSet$prot.mat) %in% com.ids),])
-            com.symbols <- doEntrez2SymbolMapping(com.ids);
+            com.symbols <- doEntrez2SymbolMapping(com.ids, data.org, paramSet$data.idType);
             dataSet$GeneAnotDB <- data.frame(gene_id=com.ids, accession=com.symbols);
             dataSet$prot.mat <- prot.mat;
             dataSet$sig.mat <- prot.mat
             dataSet$seeds.proteins <- com.ids
         }
+    }else{
+        dataSet <- readDataset("datalist1");
     }
+    
 
     # return a json array object
     # each object for a single dataset its sig proteins
@@ -357,13 +390,15 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
     protein.list[[dataSet$name]] <- signif(protein.vec, 3);
 
     gene.list$name <- dataSet$name;
-    seed.genes <<- unique(meta.gene.vec);
+    paramSet$seed.genes <- unique(meta.gene.vec);
 
     meta.seed.df <- as.matrix(meta.seed.expr);
     rownames(meta.seed.df) <- names(meta.seed.expr);
 
-    seed.expr <- .removeDuplicates(meta.seed.df, "max", quiet=F);
-    seed.expr <<- seed.expr[,1];
+    res <- RemoveDuplicates(meta.seed.df, "max", quiet=F, paramSet, msgSet);
+    seed.expr <- res[[1]];
+    msgSet <- res[[2]];
+    paramSet$seed.expr <- seed.expr[,1];
     protein.vec <- unique(meta.vec);
 
     result <- list(
@@ -371,12 +406,17 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         protein.list = protein.list,
         protein.vec = protein.vec
     );
+
+    saveSet(paramSet, "paramSet");
     return(result)
 }
 
 
 # 2nd order network, only for PPI
 ExpandNetworkSearch <- function(){
+    paramSet <- readSet(paramSet, "paramSet");
+    data.org <- paramSet$data.org;
+    sqlite.path <- paramSet$sqlite.path
     if(ppi.net$order == 0){
         SearchNetDB(ppi.net$db.type, ppi.net$table.nm);
         CreateGraph();
@@ -384,13 +424,13 @@ ExpandNetworkSearch <- function(){
     protein.vec <- V(overall.graph)$name;
     table.nm <- ppi.net$table.nm;
     if(db.typeu == "ppi"){
-        res <- QueryPpiSQLite(table.nm, protein.vec, ppi.net$require.exp, ppi.net$min.score);
+        res <- QueryPpiSQLite(sqlite.path, table.nm, protein.vec, ppi.net$require.exp, ppi.net$min.score);
     }else if (db.typeu == "tissuecoex"){
-        res <- QueryTissueCoexSQLite(protein.vec);
+        res <- QueryTissueCoexSQLite(sqlite.path, protein.vec, data.org);
     }else if (db.typeu == "tissueppi"){
-        res <- QueryDiffNetSQLite(protein.vec);
+        res <- QueryDiffNetSQLite(sqlite.path, protein.vec);
     }else if (db.typeu == "cellcoex"){
-        res <- QueryCellCoexSQLite(protein.vec);
+        res <- QueryCellCoexSQLite(sqlite.path, protein.vec, data.org);
     }
     edge.res <- data.frame(Source=res[,1],Target=res[,2]);
     #row.names(edge.res) <- res[,5];
@@ -404,10 +444,17 @@ ExpandNetworkSearch <- function(){
         fast.write(node.res, file="orig_node_list.csv", row.names=FALSE);
         ppi.net <<- list(db.type=db.typeu, order=2, seeds=protein.vec, table.nm=table.nm, node.data = node.res, edge.data = edge.res);
     }
-    return(nrow(node.res));
+    analSet$ppi.net <- ppi.net;
+    output <- nrow(node.res);
+    return(saveSet(analSet, "analSet", output));
 }
 
 # zero-order network - create ppi nets from only input (seeds)
+
+#' Create network from only input (seeds)
+#'
+#' @export
+#'
 BuildSeedProteinNet <- function(){
 
     nodes <- V(overall.graph)$name;
@@ -432,12 +479,23 @@ BuildSeedProteinNet <- function(){
     ppi.net$node.data <- nodeList;
     ppi.net$edge.data <- edgeList;
     ppi.net <<- ppi.net;
+    analSet$ppi.net <- ppi.net;
+    return(saveSet(analSet, "analSet"));
 }
 
 # create igraph from the edgelist saved from graph DB
 # and decompose into subnets
+
+#' Create igraph object from edgelist created from database selection and decompose into connected subnetworks
+#'
+#' @export
+#'
 CreateGraph <- function(){
     require('igraph');
+    paramSet <- readSet(paramSet, "paramSet");
+    data.org <- paramSet$data.org;
+    seed.expr <- paramSet$seed.expr;
+    seed.genes <- paramSet$seed.genes;
 
     node.list <- ppi.net$node.data;
     edge.list <- ppi.net$edge.data;
@@ -468,7 +526,7 @@ CreateGraph <- function(){
     if(ppi.net$db.type == "ppi"){
         ## Temp fix seed.expr all in entrez?
         ## all converted to new IDs based on PPI from the given organism
-        newIDs <- doPpiIDMapping(names(seed.expr))
+        newIDs <- doPpiIDMapping(sqlite.path, names(seed.expr), data.org)
     }else{# all entrez in mirNet
         newIDs <- names(seed.expr);
     }
@@ -483,16 +541,26 @@ CreateGraph <- function(){
     hit.inx <- seed.proteins %in% node.list[,1];
     seed.proteins <<- seed.proteins[hit.inx];
 
-    substats <- DecomposeGraph(overall.graph);
+    analSet <- DecomposeGraph(overall.graph,analSet);
+    substats <- analSet$substats;
     overall.graph <<- overall.graph;
+    analSet$overall.graph <- overall.graph;
     if(!is.null(substats)){
-        return(c(length(seed.genes), length(seed.proteins), nrow(node.list), nrow(edge.list), length(ppi.comps), substats));
+        output <- c(length(seed.genes), length(seed.proteins), nrow(node.list), nrow(edge.list), length(ppi.comps), substats);
     }else{
-        return(0);
+        output <- 0;
     }
+       return( saveSet(analSet, "analSet", output) );
+
 }
 
+#' Filter bipartite network by degree and/or betweenness
+#'
+#' @export
+#'
 FilterBipartiNet <- function(nd.type, min.dgr, min.btw){
+    paramSet <- readSet(paramSet, "paramSet");
+    seed.genes <- paramSet$seed.genes;
 
     all.nms <- V(overall.graph)$name;
     edge.mat <- get.edgelist(overall.graph);
@@ -520,26 +588,45 @@ FilterBipartiNet <- function(nd.type, min.dgr, min.btw){
     nodes2rm <- unique(c(nodes2rm.dgr, nodes2rm.btw));
     overall.graph <- simplify(delete.vertices(overall.graph, nodes2rm));
     current.msg <<- paste("A total of", length(nodes2rm) , "was reduced.");
-    substats <- DecomposeGraph(overall.graph);
+    analSet <- DecomposeGraph(overall.graph,analSet);
+    substats <- analSet$substats;
     if(!is.null(substats)){
         overall.graph <<- overall.graph;
-        return(c(length(seed.genes),length(seed.proteins), vcount(overall.graph), ecount(overall.graph), length(ppi.comps), substats));
+        output <- c(length(seed.genes),length(seed.proteins), vcount(overall.graph), ecount(overall.graph), length(ppi.comps), substats);
     }else{
-        return(0);
+        output <- 0;
     }
+
+    analSet$overall.graph <- overall.graph;
+    return(analSet, "analSet", output);
 }
 
+#' Prepare the json file for network visualization
+#'
+#' @param net.nm Name of subnetwork created from network building (i.e subnetwork1)
+#' @param json.nm Name of json file to be exported for network visualization
+#'
+#' @export
+#'
 PrepareNetwork <- function(net.nm, json.nm){
-   
-   my.ppi <- ppi.comps[[net.nm]];
+   analSet <- readSet(analSet, "analSet");
+   my.ppi <- analSet$ppi.comps[[net.nm]];
    nd.nms <- V(my.ppi)$name;
 
 
-   convertIgraph2JSON(net.nm, json.nm);
+   analSet <- convertIgraph2JSON(net.nm, json.nm);
    current.net.nm <<- net.nm;
-   return(.set.mSet(dataSet));
+   return(saveSet(analSet, "analSet", 1));
+
 }
 
+#' Prepare the json file for network visualization from user uploaded graph file
+#'
+#' @param net.nm Name of subnetwork created from network building (i.e subnetwork1)
+#' @param json.nm Name of json file to be exported for network visualization
+#'
+#' @export
+#'
 PrepareNetworkUpload <- function(net.nm, json.nm){
 
    my.ppi <- ppi.comps[[net.nm]];
@@ -548,7 +635,8 @@ PrepareNetworkUpload <- function(net.nm, json.nm){
    table.nmu <<- "NA"
    convertIgraph2JSONFromFile(net.nm, json.nm, data.idType);
    current.net.nm <<- net.nm;
-   return(.set.mSet(dataSet));
+   return(saveSet(analSet, "analSet", 1));
+
 }
 
 GetNodeIDs <- function(){
@@ -567,8 +655,14 @@ GetNodeBetweenness <- function(){
     round(betweenness(overall.graph, directed=F, normalized=F), 2);
 }
 
+#' Compute minimum connect subnetwork based on input nodes using prize-collecting steiner forest approach
+#'
+#' @return check overall.graph object for result
+#' @export
+#'
 ComputePCSFNet <- function(){
-  
+  paramSet <- readSet(paramSet, "paramSet");
+  seed.genes <- paramSet$seed.genes;
   edg <- as.data.frame(get.edgelist(overall.graph));
   edg$V3 <- rep(1, nrow(edg));
   colnames(edg) <- c("from", "to", "cost");
@@ -593,14 +687,17 @@ ComputePCSFNet <- function(){
   write.csv(edgeList, file="orig_edge_list.csv", row.names=F, quote=F);
   
   path.list <- NULL;
-  substats <- DecomposeGraph(g);
+  analSet <- DecomposeGraph(g,analSet);
+  substats <- analSet$substats;
   if(!is.null(substats)){
     overall.graph <<- g;
     current.msg<<- "Steiner Forest was completed successfully";
-    return(c(length(seed.genes),length(dataSet$seed.proteins), nrow(nodeList), nrow(edgeList), length(ppi.comps), substats));
+    output <- c(length(seed.genes),length(seed.proteins), nrow(nodeList), nrow(edgeList), length(ppi.comps), substats);
   }else{
-    return(0);
+    output <- 0;
   }
+  analSet$overall.graph <- overall.graph;
+  return(saveSet(analSet, "analSet", output));
 }
 
 # Adapted from PCSF
@@ -689,8 +786,19 @@ Compute.SteinerForest <- function(ppi, terminals, w = 2, b = 1, mu = 0.0005, dum
 # for a given graph, obtain the smallest subgraphs that contain
 # all the seed nodes. This is acheived by iteratively remove
 # the marginal nodes (degree = 1) that are not in the seeds
+
+#' Compute minimum connected network composed of seed nodes using shortest path based approach
+#'
+#' @param dataSetObj Input the name of the created dataSetObj (see Init.Data)
+#' @param max.len Maximum number of seeds, if more than this number, take top 100 seed nodes based on degrees
+#'
+#' @return check overall.graph object for result
+#' @export
+#'
 GetMinConnectedGraphs <- function(max.len = 200){
     set.seed(8574);
+    paramSet <- readSet(paramSet, "paramSet");
+    seed.genes <- paramSet$seed.genes;
     # first get shortest paths for all pair-wise seeds
     my.seeds <- seed.proteins;
     sd.len <- length(my.seeds);
@@ -739,14 +847,17 @@ GetMinConnectedGraphs <- function(max.len = 200){
     fast.write(edgeList, file="orig_edge_list.csv", row.names=F);
 
     path.list <- NULL;
-    substats <- DecomposeGraph(g);
+    analSet <- DecomposeGraph(g,analSet);
+    substats <- analSet$substats;
     net.stats<<-net.stats
     if(!is.null(substats)){
         overall.graph <<- g;
-        return(c(length(seed.genes),length(seed.proteins), nrow(nodeList), nrow(edgeList), length(ppi.comps), substats));
+        output <- c(length(seed.genes),length(seed.proteins), nrow(nodeList), nrow(edgeList), length(ppi.comps), substats);
     }else{
-        return(0);
+        output <- 0;
     }
+    analSet$overall.graph <- overall.graph;
+    return(saveSet(analSet, "analSet", output));
 }
 
 UpdateSubnetStats <- function(){
@@ -806,11 +917,14 @@ ExcludeNodes <- function(nodeids, filenm){
 
 # exclude nodes in overall net (network builder)
 ExcludeNodesOverall <- function(nodeids, id.type, vismode){
+    paramSet <- readSet(paramSet, "paramSet");
+    seed.genes <- paramSet$seed.genes;
+    data.org <- paramSet$data.org;
     # all convert to uniprot ID
     lines <- strsplit(nodeids, "\r|\n|\r\n")[[1]];
     lines<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", lines, perl=TRUE);
     if(vismode != "network"){
-        prot.anots <- convertIdToEntrez(lines, id.type);
+        prot.anots <- .doGeneIDMapping(lines, id.type, data.org, "matrix");
         nodes2rm <- unique(prot.anots$accession);
     }else{
         prot.anots <- lines
@@ -831,14 +945,16 @@ ExcludeNodesOverall <- function(nodeids, id.type, vismode){
     colnames(edgeList) <- c("Id", "Source", "Target");
     fast.write(edgeList, file="orig_edge_list.csv", row.names=F);
 
-    substats <- DecomposeGraph(g);
+    analSet <- DecomposeGraph(g,analSet);
+    substats <- analSet$substats;
     if(!is.null(substats)){
         overall.graph <<- g;
-        #forget(PerformLayOut_mem);
-        return(c(length(seed.genes),length(seed.proteins), nrow(nodeList), nrow(edgeList), length(ppi.comps), substats));
+        output <- c(length(seed.genes),length(seed.proteins), nrow(nodeList), nrow(edgeList), length(ppi.comps), substats);
     }else{
-        return(0);
+        output <- 0;
     }
+    analSet$overall.graph <- g;
+    return(saveSet(analSet,"analSet", output));
 }
 
 PrepareSubnetDownloads <- function(nm){
@@ -954,8 +1070,18 @@ SetDiffFilter <-function(pct){
 }
 
 # note: hit.query, resTable must synchronize
+
+#' Perform gene enrichment analysis or identify gene regulatory targets
+#'
+#' @param file.nm File name of result table to be exported in csv format, do not include file extension
+#' @param fun.type Enrichment database type
+#' @param IDs String of ids to be tested separated by "; "
+#'
+#' @export
+#'
 PerformNetEnrichment <- function(file.nm, fun.type, IDs){
-    save.image("net.RData");
+    paramSet <- readSet(paramSet, "paramSet");
+    data.org <- paramSet$data.org;
     # prepare query
     ora.vec <- NULL;
     if(ppi.net$db.type == 'ppi'){
@@ -1027,7 +1153,16 @@ PlotCorHistogram <- function(imgNm){
     dev.off();
 }
 
+#' Filter interactions by tissue coexpression data
+#'
+#' @param type Name of database (encode, gtex, hpa)
+#' @param tissue Selected tissue to filter (refer to web server interface for options, replace space with "." (i.e. Adipose.Tissue))
+#'
+#' @export
+#'
 FilterByTissue <- function(type, tissue){
+    paramSet <- readSet(paramSet, "paramSet");
+    seed.genes <- paramSet$seed.genes;
     all.nms <- V(overall.graph)$name;
     gene.nms <- all.nms[which(V(overall.graph)$Types %in% c("Gene", "Protein"))]
 
@@ -1057,17 +1192,27 @@ FilterByTissue <- function(type, tissue){
     ppi.net$edge.data <- edgeList;
     ppi.net <<- ppi.net;
     overall.graph <- g
-    substats <- DecomposeGraph(overall.graph);
+    analSet <- DecomposeGraph(overall.graph,analSet);
+    substats <- analSet$substats;
     if(!is.null(substats)){
         overall.graph <<- overall.graph;
-        return(c(length(seed.genes),length(seed.proteins), vcount(overall.graph), ecount(overall.graph), length(ppi.comps), substats));
+        output <- c(length(seed.genes),length(seed.proteins), vcount(overall.graph), ecount(overall.graph), length(ppi.comps), substats);
     }else{
-        return(0);
+        output <- 0;
     }
+    analSet$overall.graph <- overall.graph;
+    return(saveSet(analSet, "analSet", output));
 }
 
-FilterNetByCor <- function( min.cor, min.btw){
-
+#' Filter interactions by correlation (only applicable to coexpression network)
+#'
+#' @param min.cor Correlation threshold (0.5 - 1)
+#'
+#' @export
+#'
+FilterNetByCor <- function( min.cor){
+    paramSet <- readSet(paramSet, "paramSet");
+    seed.genes <- paramSet$seed.genes;
     all.nms <- V(overall.graph)$name;
     edge.mat <- get.edgelist(overall.graph);
     cor <- E(overall.graph)$correlation;
@@ -1079,7 +1224,8 @@ FilterNetByCor <- function( min.cor, min.btw){
 
     overall.graph <- simplify(delete.edges(overall.graph, which(rm.inx)));
     current.msg <<- paste("A total of", length(which(rm.inx)) , "edges was reduced.");
-    substats <- DecomposeGraph(overall.graph);
+    analSet <- DecomposeGraph(overall.graph,analSet);
+    substats <- analSet$substats;
     if(!is.null(substats)){
         overall.graph <<- overall.graph;
         return(c(length(seed.genes),length(seed.proteins), vcount(overall.graph), ecount(overall.graph), length(ppi.comps), substats));
@@ -1171,14 +1317,25 @@ PrepareTheraNet <- function(net.nm, json.nm, theraids, regids, regnms){
 }
 
 GetSelectedNetworks <- function(){
-    return(names(dataSet$nets));
+    paramSet <- readSet(paramSet, "paramSet");
+    return(names(paramSet$nets));
 }
 
+#' Merge or identify shared portions of multiple networks
+#'
+#' @param type Type of integrative network, either intersect, union or unique
+#'
+#' @export
+#'
 ComputeIntegNet <- function(type){
     gObjs <- list();
+    paramSet <- readSet(paramSet, "paramSet");
+    data.org <- paramSet$data.org;
+    seed.expr <- paramSet$seed.expr;
+    seed.genes <- paramSet$seed.genes;
 
-    for(i in 1:length(dataSet$nets)){
-        ppi.net <<- dataSet$nets[[i]];
+    for(i in 1:length(paramSet$nets)){
+        ppi.net <<- paramSet$nets[[i]];
         CreateGraph();
         gObj <- overall.graph;
         gObjs[[i]] <- gObj;
@@ -1187,13 +1344,13 @@ ComputeIntegNet <- function(type){
     if(type == "intersect"){
        g <- do.call(igraph::intersection, gObjs)
     }else if(type == "union"){
-       g<- do.call(igraph::union, gObjs)
+       g <- do.call(igraph::union, gObjs)
     }else{
         gObjs.union <- list()
         gObj.unique <- "";
-        for(i in 1:length(dataSet$nets)){
+        for(i in 1:length(paramSet$nets)){
             gObj <- gObjs[[i]];
-            nm <- names(dataSet$nets)[i]
+            nm <- names(paramSet$nets)[i]
             if(nm != type){
                 gObjs.union[[nm]] <- gObj
             }else{
@@ -1208,8 +1365,8 @@ ComputeIntegNet <- function(type){
     labels = rep("NA", length(V(g)$name))
     types = rep("NA", length(V(g)$name))
 
-    for(i in 1:length(dataSet$nets)){
-        ppi.net <- dataSet$nets[[i]];
+    for(i in 1:length(paramSet$nets)){
+        ppi.net <- paramSet$nets[[i]];
         node.ids <- ppi.net$node.data[,1]
         node.nms <- ppi.net$node.data[,2]
         node.types <- ppi.net$node.data[,3]
@@ -1238,7 +1395,7 @@ ComputeIntegNet <- function(type){
     if(ppi.net$db.type == "ppi"){
         ## Temp fix seed.expr all in entrez?
         ## all converted to new IDs based on PPI from the given organism
-        newIDs <- doPpiIDMapping(names(seed.expr))
+        newIDs <- doPpiIDMapping(sqlite.path, names(seed.expr), data.org);
     }else{# all entrez in mirNet
         newIDs <- names(seed.expr);
     }
@@ -1252,29 +1409,33 @@ ComputeIntegNet <- function(type){
     hit.inx <- seed.proteins %in% node.list[,1];
     seed.proteins <<- seed.proteins[hit.inx];
 
-    substats <- DecomposeGraph(overall.graph);
+    analSet <- DecomposeGraph(overall.graph,analSet);
+    substats <- analSet$substats;
     overall.graph <<- overall.graph;
     ppi.net <<- ppi.net
     if(!is.null(substats)){
-        return(c(length(seed.genes), length(seed.proteins), nrow(node.list), nrow(edge.list), length(ppi.comps), substats));
+        output <- c(length(seed.genes), length(seed.proteins), nrow(node.list), nrow(edge.list), length(ppi.comps), substats);
     }else{
-        return(0);
+        output <- 0;
     } 
+    analSet$overall.graph <- overall.graph;
+    analSet$ppi.net <- ppi.net;
+    return(saveSet(analSet,"analSet", output));
 }
 
 ClearNetSelection <- function(type){
-    if(type %in% names(dataSet$nets)){
-        inx = which( names(dataSet$nets) == type)
-        #print(inx);
-         dataSet$nets[[inx]] = NULL;
+    paramSet <- readSet(paramSet, "paramSet");
+    if(type %in% names(paramSet$nets)){
+        inx = which( names(paramSet$nets) == type)
+         paramSet$nets[[inx]] = NULL;
     }
-    #print(names(dataSet$nets));
-    dataSet <<- dataSet
+    saveSet(paramSet, "paramSet");
     return(1)
 }
 
 queryFilterDB <- function(type, org){
-
+  paramSet <- readSet(paramSet, "paramSet");
+  sqlite.path <- paramSet$sqlite.path;
   require('RSQLite');
   conv.db <- dbConnect(SQLite(), paste(sqlite.path, "tissue_filter.sqlite", sep="")); 
   db.map <- dbReadTable(conv.db, paste0(data.org,"_",type));
@@ -1282,23 +1443,4 @@ queryFilterDB <- function(type, org){
 
   return(db.map)
 }
-
-CalculateGsNet <- function(name, netNm, type, mType, db){
-  res <- PerformMetaGseaNet(name, netNm, "pval", db, mType,0.05)
-  return(.set.mSet(dataSet))
-}
-
-#'Perform Gene Set Enrichment Analysis test on single or multiple gene expression matrices
-#'@param dataSetObj file name of the data, .txt format
-#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
-#'McGill University, Canada
-#'License: GNU GPL (>= 2)
-#'@export
-#'
-PerformGSEA<- function(dataSetObj=NA, file.nm, fun.type, netNm, mType, selectedFactorInx, mode = "multi"){
-    if(!exists("my.reg.enrich")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/networkanalystr/_utils_dogsea.Rc");    
-    }
-    return(my.performgsea(dataSetObj, file.nm, fun.type, netNm, mType, selectedFactorInx, mode));
-}  
 

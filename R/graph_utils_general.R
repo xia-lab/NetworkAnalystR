@@ -28,7 +28,7 @@ GetColorSchema <- function(my.grps){
 }
 
 
-DecomposeGraph <- function(gObj, minNodeNum = 3, jsonBool = F){
+DecomposeGraph <- function(gObj,analSet, minNodeNum = 3, jsonBool = F){
   # now decompose to individual connected subnetworks
     if(jsonBool == "netjson"){
         comps <-list(gObj)
@@ -57,9 +57,11 @@ DecomposeGraph <- function(gObj, minNodeNum = 3, jsonBool = F){
   # now record
   ppi.comps <<- comps;
   net.stats <<- net.stats;
-  
   sub.stats <- unlist(lapply(comps, vcount)); 
-  return(sub.stats);
+  analSet$ppi.comps <- comps;
+  analSet$net.stats <- net.stats;
+  analSet$substats <- sub.stats;
+  return(analSet);
 }
 
 
@@ -218,6 +220,8 @@ ExtractModule<- function(nodeids){
 }
 
 PerformLayOut <- function(net.nm, algo, focus=""){
+  paramSet <- readSet(paramSet, "paramSet");
+  lib.path <- paramSet$lib.path;
   g <- ppi.comps[[net.nm]];
   vc <- vcount(g);
   if(algo == "Default"){
@@ -269,19 +273,19 @@ PerformLayOut <- function(net.nm, algo, focus=""){
       hit.inx <- match(nms, ppi.net$node.data[,1]);
       lbls <- ppi.net$node.data[hit.inx,2];
       
-      ids.arr= c(as.character(edge.infoU$Source), as.character(edge.infoU$Target))
-      type.arr= c(as.character(edge.infoU$TYPEA), as.character(edge.infoU$TYPEB))
-      inx <- !duplicated(ids.arr)
-      ids.arr <- ids.arr[inx]
-      type.arr <- type.arr[inx]
-      names(type.arr) <- ids.arr
+      ids.arr <- c(as.character(edge.infoU$Source), as.character(edge.infoU$Target));
+      type.arr <- c(as.character(edge.infoU$TYPEA), as.character(edge.infoU$TYPEB));
+      inx <- !duplicated(ids.arr);
+      ids.arr <- ids.arr[inx];
+      type.arr <- type.arr[inx];
+      names(type.arr) <- ids.arr;
       node.types <- list();
-      node.types[[1]] <- type.arr[nms]
+      node.types[[1]] <- type.arr[nms];
       
       path <- paste(lib.path,  "/signor/sig_location.rds", sep="");
-      sig.sets <- readRDS(path)
+      sig.sets <- readRDS(path);
       path2 <- paste(lib.path,  "/signor/sig_types.rds", sep="");
-      sig.sets2 <- readRDS(path)
+      sig.sets2 <- readRDS(path);
       sig.types <- rep("cytoplasm", length(lbls));
       names(sig.types) <- nms
       hit.inx <- sig.sets[,1] %in% nms
@@ -412,6 +416,8 @@ GetNetsNameString <- function(){
 
 # support walktrap, infomap and lab propagation
 FindCommunities <- function(method="walktrap", use.weight=FALSE){
+  paramSet <- readSet(paramSet, "paramSet")
+  seed.expr <- paramSet$seed.expr;
   # make sure this is the connected
   current.net <- ppi.comps[[current.net.nm]];
   g <- current.net;
@@ -501,7 +507,7 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
     subgraph <- induced.subgraph(g, path.ids);
     in.degrees <- degree(subgraph);
     out.degrees <- degree(g, path.ids) - in.degrees;
-    ppval <- wilcox.test(in.degrees, out.degrees)$p.value;
+    ppval <- suppressWarnings(wilcox.test(in.degrees, out.degrees)$p.value);
     ppval <- signif(ppval, 3);
     pval.vec <- c(pval.vec, ppval);
     
@@ -537,6 +543,10 @@ community.significance.test <- function(graph, vs, ...) {
 
 
 convertIgraph2JSON <- function(net.nm, filenm){
+  paramSet <- readSet(paramSet, "paramSet");
+  anal.type <- paramSet$anal.type;
+  lib.path <- paramSet$lib.path;
+
   g <- ppi.comps[[net.nm]];
   current.net.nm <<- net.nm
   # annotation
@@ -893,11 +903,13 @@ convertIgraph2JSON <- function(net.nm, filenm){
   cat(RJSONIO::toJSON(netData));
   sink();
   
-  if(!.on.public.web){
-    library(httr);
-    r <- POST("localhost:8080/NetworkAnalyst/faces/R_REQUEST_NET", body = list(organism = data.org, idtype = "entrez", network = rjson::toJSON(netData)))
-  }
-  
+  analSet[[filenm]] <- netData;
+
+  #if(!.on.public.web){
+  #  library(httr);
+  #  r <- POST("localhost:8080/NetworkAnalyst/faces/R_REQUEST_NET", body = list(organism = data.org, idtype = "entrez", network = rjson::toJSON(netData)))
+  #}
+  return(analSet);
 }
 
 
