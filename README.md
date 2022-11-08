@@ -1,11 +1,3 @@
----
-title: "NetworkAnalystR"
-output:
-  html_document:
-    toc: true
-    theme: united
----
-
 # Description
 
 **_NetworkAnalystR_** is the underlying R package synchronized with NetworkAnalyst web server. It is designed for systems interpretation of gene list data through comprehensive collections of knowledge-based networks - protein-protein interactions, gene regulatory networks, co-expression networks, as well as chemical-, disease- or drug- associated networks. The R package is composed of R functions necessary for the web-server to perform network creation, trimming and analysis.
