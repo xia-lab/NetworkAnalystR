@@ -59,8 +59,6 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
     lib.path <- paramSet$lib.path;
 
     net.type <- gsub(paste0(data.org,"_"),'',table.nm);
-    print("nettttt==");
-    print(net.type);
     SetNetType(net.type);
 
     protein.vec <- result.list$protein.vec; # this actually is entrez IDs?
@@ -598,7 +596,7 @@ FilterBipartiNet <- function(nd.type, min.dgr, min.btw){
     }
 
     analSet$overall.graph <- overall.graph;
-    return(analSet, "analSet", output);
+    return(saveSet(analSet, "analSet", output));
 }
 
 #' Prepare the json file for network visualization

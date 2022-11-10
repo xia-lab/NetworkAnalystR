@@ -5,6 +5,9 @@
 ###################################################
 
 .on.public.web <<- T;
+globalConfig <- list();
+globalConfig$anal.mode <- "web"
+globalConfig <<- globalConfig;
 
 Set.Config <-function(anal.mode="web"){
 
@@ -161,7 +164,6 @@ SetAnalType <- function(analType){
 }
 
 SetNetType <- function(netType){
-  print(netType);
   net.type <<- netType;
 }
 
