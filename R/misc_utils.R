@@ -443,3 +443,13 @@ GetNumOfLists <- function(){
   paramSet <- readSet(paramSet, "paramSet");
   return(paramSet$numOfLists)
 }
+
+PrepareSqliteDB <- function(sqlite_Path, onweb = TRUE) {
+  if(onweb) {return(TRUE)};
+  if(file.exists(sqlite_Path)) {return(TRUE)};
+  
+  dbNM <- basename(sqlite_Path);
+  DonwloadLink <- paste0("https://www.xialab.ca/resources/sqlite/", dbNM);
+  download.file(DonwloadLink, sqlite_Path);
+  return(TRUE)
+}

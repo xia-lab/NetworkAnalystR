@@ -9,7 +9,11 @@
 # note, last two par only for STRING database
 QueryPpiSQLite <- function(sqlite.path, table.nm, q.vec, requireExp, min.score){
   require('RSQLite')
-  ppi.db <- dbConnect(SQLite(), paste(sqlite.path, "ppi.sqlite", sep="")); 
+  db.path <- paste(sqlite.path, "ppi.sqlite", sep="");
+  if(!PrepareSqliteDB(db.path, paramSet$on.public.web)){
+    stop("Sqlite database is missing, please check your internet connection!");
+  }
+  ppi.db <- dbConnect(SQLite(), db.path); 
   query <- paste(shQuote(q.vec),collapse=",");
   
   if(grepl("string$", table.nm)){
