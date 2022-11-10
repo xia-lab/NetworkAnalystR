@@ -354,12 +354,11 @@ AnnotateGeneData <- function(dataName, org, idtype){
 
 queryGeneDB <- function(table.nm, data.org){
   paramSet <- readSet(paramSet, "paramSet");  
-  data.org <- paramSet$data.org;
   if(length(table.nm) == 0){
     table.nm <- "";
   }
 
-  if(table.nm == "custom" || paramSet$data.org == "custom"){
+  if(table.nm == "custom" || data.org == "custom"){
     db.map <- qs::qread("anot_table.qs");
   }else{
     require('RSQLite');
@@ -376,7 +375,6 @@ queryGeneDB <- function(table.nm, data.org){
     db.map <- dbReadTable(conv.db, table.nm);
     dbDisconnect(conv.db); cleanMem();
   }
-
   return(db.map)
 }
 

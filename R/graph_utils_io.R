@@ -442,11 +442,11 @@ convertIgraph2JSONFromFile <- function(net.nm, filenm, idType){
     netData[["maxCorrelation"]] <- max(E(g)$correlation)
     netData[["minCorrelation"]] <- min(abs(E(g)$correlation))
   }
-  dataSet$jsonNms$network <<- filenm
+  paramSet$jsonNms$network <<- filenm
   if(!filenm %in% partialToBeSaved){
     partialToBeSaved <<- c(partialToBeSaved, c(filenm))
   }
-  
+  saveSet(paramSet,"paramSet");
   sink(filenm);
   cat(RJSONIO::toJSON(netData));
   sink();

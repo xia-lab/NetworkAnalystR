@@ -292,10 +292,13 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
 }
 
 .prepareListSeeds <- function(){
+    save.image("seed.RData");
     protein.list <- list();
     gene.list <- list();
     paramSet <- readSet(paramSet, "paramSet");
     selectedNetDataset <- paramSet$selectedNetDataset;
+    print(selectedNetDataset);
+    print("SEL====");
     msgSet <- readSet(msgSet, "msgSet");
 
     data.org <- paramSet$data.org;
@@ -1077,7 +1080,8 @@ SetDiffFilter <-function(pct){
 #'
 #' @export
 #'
-PerformNetEnrichment <- function(file.nm, fun.type, IDs){
+PerformNetEnrichment <- function(dataName="", file.nm, fun.type, IDs){
+    dataSet <- readDataset(dataName);
     paramSet <- readSet(paramSet, "paramSet");
     data.org <- paramSet$data.org;
     # prepare query
@@ -1129,14 +1133,14 @@ PerformNetEnrichment <- function(file.nm, fun.type, IDs){
     }
 
     if(fun.type %in% c("trrust", "encode", "jaspar", "mirnet", "met", "drugbank", "disease")){
-        res <- PerformRegEnrichAnalysis(file.nm, fun.type, ora.vec, "inverse");
+        res <- PerformRegEnrichAnalysis(dataSet, file.nm, fun.type, ora.vec, "inverse");
     }else{
         res <- .performEnrichAnalysis(dataSet, file.nm, fun.type, ora.vec);
     }
 
-    if(checkEntrezMatches(unname(ora.vec)) > 0 && res == 0){
-        res=2;
-    }
+    #if(checkEntrezMatches(unname(ora.vec)) > 0 && res == 0){
+    #    res=2;
+    #}
     return(res);
 }
 
@@ -1232,16 +1236,17 @@ FilterNetByCor <- function( min.cor){
     }
 }
 
-regEnrichment <- function(file.nm, fun.type, IDs, netInv){
+regEnrichment <- function(dataName, file.nm, fun.type, IDs, netInv){
+
   regBool <<- "false";
-  res <- PerformNetEnrichment(file.nm, fun.type, IDs);
+  res <- PerformNetEnrichment(dataName, file.nm, fun.type, IDs);
 }
 
-PerformRegEnrichAnalysis <- function(file.nm, fun.type, ora.vec, netInv){
+PerformRegEnrichAnalysis <- function(dataSet, file.nm, fun.type, ora.vec, netInv){
     if(!exists("my.reg.enrich")){ # public web on same user dir
         compiler::loadcmp("../../rscripts/networkanalystr/_utils_regenrich.Rc");    
     }
-    return(my.reg.enrich(file.nm, fun.type, ora.vec, netInv));
+    return(my.reg.enrich(dataSet, file.nm, fun.type, ora.vec, netInv));
 }
 
 PrepareTheraNet <- function(net.nm, json.nm, theraids, regids, regnms){

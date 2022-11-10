@@ -1,9 +1,9 @@
-my.reg.enrich <- function(file.nm, fun.type, ora.vec, netInv){
+my.reg.enrich <- function(dataSet, file.nm, fun.type, ora.vec, netInv){
   require(plyr)
 
   paramSet <- readSet(paramSet, "paramSet");
-  data.org <- dataSet$data.org;
-  sqlite.path <- dataSet$sqlite.path;
+  data.org <- paramSet$data.org;
+  sqlite.path <- paramSet$sqlite.path;
 
   ora.nms <- names(ora.vec);
   # prepare for the result table

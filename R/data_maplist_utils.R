@@ -44,7 +44,7 @@ MapListIds <- function(listNm, geneIDs, org, idType){
     listNms[i] = dataSet$name;
     gene.mat <- prot.mat <- dataList[[i]];
     GeneAnotDB <-.doGeneIDMapping(rownames(gene.mat), idType, paramSet$data.org, "table");
-    
+    print(head(GeneAnotDB));
     na.inx <- is.na(GeneAnotDB[,1]) | is.na(GeneAnotDB[,2]);
     if(sum(!na.inx) < 2){
       msgSet$current.msg <- "Less than two hits found in uniprot database. "; 

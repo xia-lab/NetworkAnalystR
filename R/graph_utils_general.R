@@ -544,6 +544,7 @@ community.significance.test <- function(graph, vs, ...) {
 
 convertIgraph2JSON <- function(net.nm, filenm){
   paramSet <- readSet(paramSet, "paramSet");
+  data.org<- paramSet$data.org;
   anal.type <- paramSet$anal.type;
   lib.path <- paramSet$lib.path;
 
