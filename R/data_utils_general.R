@@ -4,13 +4,7 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
-.on.public.web <<- T;
-globalConfig <- list();
-globalConfig$anal.mode <- "web"
-globalConfig <<- globalConfig;
-
 Set.Config <-function(anal.mode="web"){
-
   globalConfig <- list();
   globalConfig$anal.mode <- anal.mode
   globalConfig <<- globalConfig;
@@ -102,12 +96,13 @@ Init.Data<-function(onWeb=T, path="../../"){
   paramSet$sqlite.path <- sqlite.path;
   paramSet$lib.path <- paste0(path, "data/");
 
-  if(!.on.public.web) {
+  if(!onWeb) {
     paramSet$sqlite.path <- paste0(getwd(), "/");
     paramSet$lib.path <- "https://www.expressanalyst.ca/ExpressAnalyst/resources/data/";
+    .on.public.web <<- T;
   } 
 
-  paramSet$on.public.web <- .on.public.web;
+  paramSet$on.public.web <- onWeb;
   paramSet$data.org <- "hsa";
   paramSet$module.count <- 0;
   msgSet$current.msg <- vector(mode="character");

@@ -292,13 +292,12 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
 }
 
 .prepareListSeeds <- function(){
-    save.image("seed.RData");
+    #save.image("seed.RData");
     protein.list <- list();
     gene.list <- list();
     paramSet <- readSet(paramSet, "paramSet");
     selectedNetDataset <- paramSet$selectedNetDataset;
-    print(selectedNetDataset);
-    print("SEL====");
+
     msgSet <- readSet(msgSet, "msgSet");
 
     data.org <- paramSet$data.org;
