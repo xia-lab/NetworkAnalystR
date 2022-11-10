@@ -10,10 +10,7 @@
 QueryPpiSQLite <- function(sqlite.path, table.nm, q.vec, requireExp, min.score){
   require('RSQLite')
   db.path <- paste(sqlite.path, "ppi.sqlite", sep="");
-  if(!PrepareSqliteDB(db.path, paramSet$on.public.web)){
-    stop("Sqlite database is missing, please check your internet connection!");
-  }
-  ppi.db <- dbConnect(SQLite(), db.path); 
+  ppi.db <- .connect.sqlite(db.path);
   query <- paste(shQuote(q.vec),collapse=",");
   
   if(grepl("string$", table.nm)){
@@ -36,101 +33,109 @@ QueryPpiSQLite <- function(sqlite.path, table.nm, q.vec, requireExp, min.score){
 QueryOtherPpiSQLite <- function(sqlite.path, table.nm, q.vec, data.org){
   require('RSQLite')
     if(grepl("signal$", table.nm)){
-        ppi.db <- dbConnect(SQLite(), paste(sqlite.path, "signor.sqlite", sep="")); 
+        db.path <- paste(sqlite.path, "signor.sqlite", sep=""); 
         table.nm <- data.org
     }else{
-        ppi.db <- dbConnect(SQLite(), paste(sqlite.path, "cross_species_ppi.sqlite", sep="")); 
+        db.path <- paste(sqlite.path, "cross_species_ppi.sqlite", sep=""); 
     }
+  con <- .connect.sqlite(db.path);
   query <- paste(shQuote(q.vec),collapse=",");
   statement <- paste('SELECT * FROM "',table.nm, '" WHERE ((id1 IN (', query, ')) OR (id2 IN (', query, ')))', sep='');
-  ppi.res <- .query.sqlite(ppi.db, statement);
+  ppi.res <- .query.sqlite(con, statement);
   return(ppi.res);  
 }
 
 # table name is org code, id.type is column name
 QueryMirSQLite <- function(sqlite.path, org, id.type, q.vec, db.nm){
   require('RSQLite');
-  mir.db <- dbConnect(SQLite(), paste(sqlite.path, "mir2gene.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "mir2gene.sqlite", sep=""); 
+  con <- .connect.sqlite(db.path);
   query <- paste (shQuote(q.vec),collapse=",");
   #statement <- paste("SELECT * FROM ", org, " WHERE ",id.type," IN (",query,")", " AND ", db.nm," == 1 ", sep="");
   statement <- paste("SELECT * FROM ", org, " WHERE ",id.type," IN (",query,")", " AND ", db.nm," == 1 ", sep="");
-  return(.query.sqlite(mir.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 # table name is org code, id.type is column name
 QueryDrugSQLite <- function(sqlite.path, q.vec){
   require('RSQLite');
-  drug.db <- dbConnect(SQLite(), paste(sqlite.path, "drug.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "drug.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   query <- paste (shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM human WHERE upid IN (",query,")", sep="");
-  return(.query.sqlite(drug.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 QueryDiseaseSQLite <- function(sqlite.path, q.vec){
   require('RSQLite');
-  dis.db <- dbConnect(SQLite(), paste(sqlite.path, "disease.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "disease.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   query <- paste(shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM human WHERE entrez IN (",query,")", sep="");
-  return(.query.sqlite(dis.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 QueryTfmirSQLite <- function(sqlite.path, q.vec, data.org){
   require('RSQLite');
-  paramSet <- readSet(paramSet, "paramSet");
-  sqlite.path <- paramSet$sqlite.path;
-  tf.db <- dbConnect(SQLite(), paste(sqlite.path, "tfmirgene.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "tfmirgene.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   query <- paste(shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM ", data.org, " WHERE ((id1 IN (", query, ")) OR (id2 IN (", query, ")))" , sep="");
-  return(.query.sqlite(tf.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 QueryDiffNetSQLite <- function(sqlite.path, q.vec){
   require('RSQLite');
-  drug.db <- dbConnect(SQLite(), paste(sqlite.path, "tissuePPI.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "tissuePPI.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   table.nm <- diffNetName;
   query <- paste (shQuote(q.vec),collapse=",");
   topPct <- 1-diffPct;
   botstatement <- paste("SELECT * FROM ",table.nm, " WHERE ((id1 IN (", query, ")) OR (id2 IN (", query, ")))  AND rank <=", diffPct ,sep="");
   topstatement <- paste("SELECT * FROM ",table.nm, " WHERE ((id1 IN (", query, ")) OR (id2 IN (", query, ")))  AND rank >=", topPct ,sep="");
   
-  drug.dic1 <- .query.sqlite(drug.db, botstatement, FALSE);# no close db connection
-  drug.dic2 <- .query.sqlite(drug.db, topstatement);
-  drug.dic <- rbind(drug.dic1, drug.dic2);
-  return(drug.dic);
+  dic1 <- .query.sqlite(con, botstatement, FALSE);# no close db connection
+  dic2 <- .query.sqlite(con, topstatement);
+  dic <- rbind(dic1, dic2);
+  return(dic);
 }
 
 QueryCellCoexSQLite <- function(sqlite.path, q.vec, data.org){
   require('RSQLite');
-  drug.db <- dbConnect(SQLite(), paste(sqlite.path, data.org,"_immune.sqlite", sep=""));
+  db.path <- paste(sqlite.path, data.org,"_immune.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   tblNm <- paste0(data.org,"_",cellCoexNumber);
   query <- paste (shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM ", tblNm, " WHERE ((id1 IN (", query, ")) OR (id2 IN (", query, ")))" , sep="");
-  return(.query.sqlite(drug.db,statement));
+  return(.query.sqlite(con,statement));
 }
 
 QueryTissueCoexSQLite <- function(sqlite.path, q.vec, data.org){
   require('RSQLite');
-  drug.db <- dbConnect(SQLite(), paste(sqlite.path, "tissueCoex.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "tissueCoex.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   tblNm <- paste0(data.org,"_",cellCoexNumber);
   query <- paste (shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM ", tblNm, " WHERE ((id1 IN (", query, ")) OR (id2 IN (", query, ")))" , sep="");
-  return(.query.sqlite(drug.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 QueryChemSQLite<- function(sqlite.path, org, q.vec){
   require('RSQLite');
-  chem.db <- dbConnect(SQLite(), paste(sqlite.path, "chem.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "chem.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   query <- paste (shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM ", org, " WHERE entrez IN (",query,")", sep="");
-  return(.query.sqlite(chem.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 QueryTFSQLite<- function(sqlite.path, table.nm, q.vec){
   require('RSQLite');
-  chem.db <- dbConnect(SQLite(), paste(sqlite.path, "tf2gene.sqlite", sep=""));
+  db.path <- paste(sqlite.path, "tf2gene.sqlite", sep="");
+  con <- .connect.sqlite(db.path);
   query <- paste (shQuote(q.vec),collapse=",");
   statement <- paste("SELECT * FROM ", table.nm, " WHERE entrez IN (",query,")", sep="");
-  return(.query.sqlite(chem.db, statement));
+  return(.query.sqlite(con, statement));
 }
 
 doPpiIDMapping <- function(sqlite.path, q.vec, data.org="entrez_swissprot"){
@@ -168,6 +173,8 @@ if(idType == "entrez"){
 }
 
 doUniprot2EntrezMapping<-function(uniprot.vec){
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   db.map <-  queryGeneDB("entrez_uniprot", data.org);
   hit.inx <- match(uniprot.vec, db.map[, "accession"]);
   entrezs <- db.map[hit.inx, "gene_id"];
@@ -178,6 +185,8 @@ doUniprot2EntrezMapping<-function(uniprot.vec){
 }
 
 doEntrez2UniprotMapping<-function(entrez.vec){
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   db.map <-  queryGeneDB("entrez_uniprot", data.org);
   hit.inx <- match(entrez.vec, db.map[, "gene_id"]);
   entrezs <- db.map[hit.inx, "accession"];
@@ -188,6 +197,8 @@ doEntrez2UniprotMapping<-function(entrez.vec){
 }
 
 doEntrez2UniprotMapping <- function(entrez.vec){
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   db.map <-  queryGeneDB("entrez_uniprot", data.org);
   hit.inx <- match(entrez.vec, db.map[, "gene_id"]);
   unips <- db.map[hit.inx, "accession"];
@@ -196,7 +207,8 @@ doEntrez2UniprotMapping <- function(entrez.vec){
 }
 
 doString2EntrezMapping <- function(string.vec){
-
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   db.map <-  queryGeneDB("entrez_string", data.org);
   hit.inx <- match(string.vec, db.map[, "accession"]);
   entrezs <- db.map[hit.inx, "gene_id"];
@@ -205,6 +217,8 @@ doString2EntrezMapping <- function(string.vec){
 }
 
 doEmblGene2EntrezMapping <- function(emblgene.vec){
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   db.map <-  queryGeneDB("entrez_embl_gene", data.org);
   hit.inx <- match(emblgene.vec, db.map[, "accession"]);
   entrezs <- db.map[hit.inx, "gene_id"];
@@ -213,6 +227,8 @@ doEmblGene2EntrezMapping <- function(emblgene.vec){
 }
 
 doEmblProtein2EntrezMapping <- function(emblprotein.vec){
+  paramSet <- readSet(paramSet, "paramSet");
+  data.org <- paramSet$data.org;
   db.map <-  queryGeneDB("entrez_embl_protein", data.org);
   hit.inx <- match(emblprotein.vec, db.map[, "accession"]);
   entrezs <- db.map[hit.inx, "gene_id"];
@@ -253,4 +269,11 @@ QueryMetSQLiteNet <- function(sqlite.path, table.nm, q.vec, inv){
   }
   cleanMem();
   return(res);
+}
+
+.connect.sqlite <- function(db.path){
+  if(!PrepareSqliteDB(db.path, paramSet$on.public.web)){
+    stop("Sqlite database is missing, please check your internet connection!");
+  }
+  return(dbConnect(SQLite(), db.path)); 
 }
