@@ -45,8 +45,9 @@ my.reg.enrich <- function(dataSet, file.nm, fun.type, ora.vec, netInv){
     ora.vec <- doEntrez2UniprotMapping(ora.vec);
     res <- QueryDrugSQLite(sqlite.path, ora.vec);
     if(nrow(res)==0){ return(c(0,0)); }
-    edge.res <- data.frame(gene=doUniprot2EntrezMapping(res[,"upid"]), symbol=res[,"symbol"], id=res[,"dbid"], name=res[,"dbname"] );
-    node.ids <- c(doUniprot2EntrezMapping(res[,"upid"]), res[,"dbid"])
+    entrez.vec <- .doGeneIDMapping(res[,"upid"], "uniprot", data.org, "vec")
+    edge.res <- data.frame(gene=entrez.vec, symbol=res[,"symbol"], id=res[,"dbid"], name=res[,"dbname"] );
+    node.ids <- c(entrez.vec, res[,"dbid"])
     node.nms <- c(res[,"symbol"], res[,"dbname"]);
   }
   

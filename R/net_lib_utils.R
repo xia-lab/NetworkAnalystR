@@ -172,18 +172,6 @@ if(idType == "entrez"){
 }
 }
 
-doUniprot2EntrezMapping<-function(uniprot.vec){
-  paramSet <- readSet(paramSet, "paramSet");
-  data.org <- paramSet$data.org;
-  db.map <-  queryGeneDB("entrez_uniprot", data.org);
-  hit.inx <- match(uniprot.vec, db.map[, "accession"]);
-  entrezs <- db.map[hit.inx, "gene_id"];
-  mode(entrezs) <- "character";
-  na.inx <- is.na(entrezs);
-  entrezs[na.inx] <- uniprot.vec[na.inx];
-  return(entrezs);
-}
-
 doEntrez2UniprotMapping<-function(entrez.vec){
   paramSet <- readSet(paramSet, "paramSet");
   data.org <- paramSet$data.org;
@@ -193,46 +181,6 @@ doEntrez2UniprotMapping<-function(entrez.vec){
   mode(entrezs) <- "character";
   na.inx <- is.na(entrezs);
   entrezs[na.inx] <- entrez.vec[na.inx];
-  return(entrezs);
-}
-
-doEntrez2UniprotMapping <- function(entrez.vec){
-  paramSet <- readSet(paramSet, "paramSet");
-  data.org <- paramSet$data.org;
-  db.map <-  queryGeneDB("entrez_uniprot", data.org);
-  hit.inx <- match(entrez.vec, db.map[, "gene_id"]);
-  unips <- db.map[hit.inx, "accession"];
-  mode(unips) <- "character";
-  return(unips);
-}
-
-doString2EntrezMapping <- function(string.vec){
-  paramSet <- readSet(paramSet, "paramSet");
-  data.org <- paramSet$data.org;
-  db.map <-  queryGeneDB("entrez_string", data.org);
-  hit.inx <- match(string.vec, db.map[, "accession"]);
-  entrezs <- db.map[hit.inx, "gene_id"];
-  mode(entrezs) <- "character";
-  return(entrezs);
-}
-
-doEmblGene2EntrezMapping <- function(emblgene.vec){
-  paramSet <- readSet(paramSet, "paramSet");
-  data.org <- paramSet$data.org;
-  db.map <-  queryGeneDB("entrez_embl_gene", data.org);
-  hit.inx <- match(emblgene.vec, db.map[, "accession"]);
-  entrezs <- db.map[hit.inx, "gene_id"];
-  mode(entrezs) <- "character";
-  return(entrezs);
-}
-
-doEmblProtein2EntrezMapping <- function(emblprotein.vec){
-  paramSet <- readSet(paramSet, "paramSet");
-  data.org <- paramSet$data.org;
-  db.map <-  queryGeneDB("entrez_embl_protein", data.org);
-  hit.inx <- match(emblprotein.vec, db.map[, "accession"]);
-  entrezs <- db.map[hit.inx, "gene_id"];
-  mode(entrezs) <- "character";
   return(entrezs);
 }
 
@@ -253,27 +201,4 @@ QueryMetSQLiteNet <- function(sqlite.path, table.nm, q.vec, inv){
     lnc.dic <<- lnc.dic
     dbDisconnect(lnc.db);
     return(lnc.dic);
-}
-
-
-##########################################
-############# private utility methods #### 
-##########################################
-
-.query.sqlite <- function(db.con, statement, offline=TRUE){
-  rs <- dbSendQuery(db.con, statement);
-  res <- fetch(rs, n=-1); # get all records
-  dbClearResult(rs);
-  if(offline){
-    dbDisconnect(db.con);
-  }
-  cleanMem();
-  return(res);
-}
-
-.connect.sqlite <- function(db.path){
-  if(!PrepareSqliteDB(db.path, paramSet$on.public.web)){
-    stop("Sqlite database is missing, please check your internet connection!");
-  }
-  return(dbConnect(SQLite(), db.path)); 
 }

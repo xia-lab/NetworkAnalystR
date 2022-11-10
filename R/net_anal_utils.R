@@ -137,14 +137,14 @@ SearchNetDB <- function(db.type, table.nm, require.exp=TRUE, min.score = 900, or
         res <- QueryDrugSQLite(sqlite.path, protein.vec);
         # no hits
         if(nrow(res)==0){ return(c(0,0)); }
-        edge.res <- data.frame(Source=doUniprot2EntrezMapping(res[,"upid"]),Target=res[,"dbid"]);
+        entrez.vec <- .doGeneIDMapping(res[,"upid"], "uniprot", data.org, "vec");
+        edge.res <- data.frame(Source=entrez.vec,Target=res[,"dbid"]);
         row.names(edge.res) <- 1:nrow(res);
         fast.write(edge.res, file="orig_edge_list.csv",row.names=FALSE);
-
-        node.ids <- c(doUniprot2EntrezMapping(res[,"upid"]), res[,"dbid"]);
+        node.ids <- c(entrez.vec, res[,"dbid"]);
         node.nms <- c(res[,"symbol"], res[,"dbname"]);
         node.types <- c(rep("Protein", nrow(res)), rep("Drug", nrow(res)));
-        protein.vec <- doUniprot2EntrezMapping(protein.vec);
+        protein.vec <- .doGeneIDMapping(protein.vec, "uniprot", data.org, "vec");
     }else if(db.type == "disease"){
         res <- QueryDiseaseSQLite(sqlite.path, protein.vec);
         # no hits
@@ -1099,24 +1099,21 @@ PerformNetEnrichment <- function(dataName="", file.nm, fun.type, IDs){
         }else if(data.org == "sce" & net.type == "string"){ # only for yeast
                 idtype <- "embl_gene";
         }
+        id.vec <- unlist(strsplit(IDs, "; "));
         if(idtype=="uniprot"){
-            uniprot.vec <- unlist(strsplit(IDs, "; "));
-            ora.vec <- doUniprot2EntrezMapping(uniprot.vec);
-            names(ora.vec) <- uniprot.vec;
+            ora.vec <- .doGeneIDMapping(id.vec, "uniprot", data.org, "vec")
+            names(ora.vec) <- id.vec;
         }else if(idtype=="embl_protein"){
-            emblprotein.vec <- unlist(strsplit(IDs, "; "))
-            ora.vec <- doEmblProtein2EntrezMapping(emblprotein.vec);
-            names(ora.vec) <- emblprotein.vec;
+            ora.vec <- .doGeneIDMapping(id.vec, "embl_protein", data.org, "vec")
+            names(ora.vec) <- id.vec;
         }else if(idtype=="string"){
-            string.vec <- unlist(strsplit(IDs, "; "))
-            ora.vec <- doString2EntrezMapping(string.vec);
-            names(ora.vec) <- string.vec;
+            ora.vec <- .doGeneIDMapping(id.vec, "string", data.org, "vec")
+            names(ora.vec) <- id.vec;
         }else if(idtype=="embl_gene"){
-            emblgene.vec <- unlist(strsplit(IDs, "; "))
-            ora.vec <- doEmblGene2EntrezMapping(emblgene.vec);
-            names(ora.vec) <- emblgene.vec;
+            ora.vec <- .doGeneIDMapping(id.vec, "embl_gene", data.org, "vec")
+            names(ora.vec) <- id.vec;
         }else{
-            ora.vec <- unlist(strsplit(IDs, "; "));
+            ora.vec <- id.vec;
             names(ora.vec) <- ora.vec;
         }
 

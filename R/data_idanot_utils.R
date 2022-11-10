@@ -346,38 +346,6 @@ AnnotateGeneData <- function(dataName, org, idtype){
   return(entrez);
 }
 
-##################################################
-## R script for ExpressAnalyst
-## Description: Gene/Probe/Protein ID Annotation
-## Author: Jeff Xia, jeff.xia@mcgill.ca
-###################################################
-
-queryGeneDB <- function(table.nm, data.org){
-  paramSet <- readSet(paramSet, "paramSet");  
-  if(length(table.nm) == 0){
-    table.nm <- "";
-  }
-
-  if(table.nm == "custom" || data.org == "custom"){
-    db.map <- qs::qread("anot_table.qs");
-  }else{
-    require('RSQLite');
-    db.path <- paste(paramSet$sqlite.path, data.org, "_genes.sqlite", sep="")
-
-    if(!PrepareSqliteDB(db.path, paramSet$on.public.web)){
-      stop("Sqlite database is missing, please check your internet connection!");
-    }
-    conv.db <- dbConnect(SQLite(), db.path); 
-    tbls <- dbListTables(conv.db)
-    if(!table.nm %in% tbls){
-        return(0);
-    }
-    db.map <- dbReadTable(conv.db, table.nm);
-    dbDisconnect(conv.db); cleanMem();
-  }
-  return(db.map)
-}
-
 getEntrezTableName <- function(data.org, data.idType){
     if(data.org == "generic"){
         tblNm <- paste0("entrez_", data.idType);
